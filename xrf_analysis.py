@@ -2508,9 +2508,14 @@ class XRFProcessorGUI:
 
             for item_id, esp in espectros_reales.items():
                 nombre_archivo = esp.get('nombre_archivo', item_id)
-                df_datos = esp.get('datos')
+                # Limpiar nombre para dejar solo el identificador limpio (ej: ANALYZE_EMP-7060)
+                nombre_limpio = os.path.basename(nombre_archivo)
+                if '.' in nombre_limpio:
+                    nombre_limpio = os.path.splitext(nombre_limpio)[0]
+                if '@' in nombre_limpio:
+                    nombre_limpio = nombre_limpio.split('@')[0]
 
-                row_data = [None, None, None, nombre_archivo]
+                row_data = [None, None, None, nombre_limpio]
 
                 if df_datos is not None and not df_datos.empty and 'Energia_keV' in df_datos and 'Cuentas' in df_datos:
                     energias = df_datos['Energia_keV'].values
