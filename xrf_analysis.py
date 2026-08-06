@@ -11,6 +11,7 @@ from tkinter import filedialog
 from tkinterdnd2 import DND_FILES, TkinterDnD
 
 import lectura_espectros
+import openpyxl
 
 # Diccionario de asociaciones de elementos comunes en patrimonio cultural, aleaciones y pigmentos
 ASOCIACIONES_PATRIMONIO = {
