@@ -2508,6 +2508,8 @@ class XRFProcessorGUI:
 
             for item_id, esp in espectros_reales.items():
                 nombre_archivo = esp.get('nombre_archivo', item_id)
+                df_datos = esp.get('datos')
+
                 # Limpiar nombre para dejar solo el identificador limpio (ej: ANALYZE_EMP-7060)
                 nombre_limpio = os.path.basename(nombre_archivo)
                 if '.' in nombre_limpio:
