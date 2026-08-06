@@ -600,7 +600,7 @@ class XRFProcessorGUI:
 
         self.btn_artax_filtrado = ttk.Button(
             self.buttons_frame,
-            text="🎯 Exportar ARTAX (Líneas Seleccionadas)",
+            text="🎯 Exportar espectros con líneas seleccionadas",
             command=self.exportar_artax_filtrado,
             style='Success.TButton'
         )
@@ -917,7 +917,7 @@ class XRFProcessorGUI:
         Tooltip(self.btn_excel, "Exportar los datos consolidados y resúmenes de todas las muestras a un archivo Excel.")
         Tooltip(self.btn_excel_graficas, "Exportar reporte detallado en Excel con hojas individuales y gráficas.")
         Tooltip(self.btn_guardar_rtx, "Guardar la sesión y avances del proyecto en un archivo XML .rtx compatible con Bruker ARTAX.")
-        Tooltip(self.btn_artax_filtrado, "Exportar reporte con formato Bruker ARTAX (todos.xls) conteniendo todos los espectros individuales, pero limitado únicamente a las líneas de elementos marcadas en el panel de referencias.")
+        Tooltip(self.btn_artax_filtrado, "Exportar espectros con líneas seleccionadas.")
         Tooltip(self.btn_copiar_portapapeles, "Copiar la imagen de la gráfica actual al portapapeles para pegarla (Ctrl+V) sin guardar archivo.")
         Tooltip(self.btn_limpiar, "Eliminar todos los espectros y carpetas cargadas en la aplicación.")
 
