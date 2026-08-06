@@ -247,5 +247,63 @@ class TestXRFAnalysis(unittest.TestCase):
         self.assertAlmostEqual(df['Energia_keV'].iloc[0], intercept)
         print("[TEST] Fallback de reconstrucción XML validado con éxito.")
 
+    def test_exportar_artax_filtrado_estructura(self):
+        import openpyxl
+        import tempfile
+
+        # Simular lectura de datos del RTX de prueba
+        espectros = lectura_espectros.parsear_rtx(self.rtx_file)
+        self.assertGreater(len(espectros), 0)
+
+        # Seleccionar elementos de prueba: Fe, Ca, Cu
+        elementos_sel = ['Ca', 'Cu', 'Fe']
+        
+        # Generar archivo temporal
+        with tempfile.NamedTemporaryFile(suffix='.xlsx', delete=False) as tmp:
+            tmp_path = tmp.name
+
+        try:
+            wb = openpyxl.Workbook()
+            ws_param = wb.active
+            ws_param.title = "Parameter"
+
+            param_rows = [
+                ["Project:", "TestProject"],
+                ["Method:", "arqu encrym"],
+                ["High voltage/kV:", 40],
+                ["Current/µA:", 11],
+                ["Time/s:", 24],
+                ["Elements:", " ".join(elementos_sel) + " "],
+            ]
+            for r in param_rows:
+                ws_param.append(r)
+            for _ in range(14):
+                ws_param.append([None, None])
+            ws_param.append(["Values:", "Net area"])
+
+            ws_points = wb.create_sheet(title="Points")
+            cols_test = ['Ca K12', 'Ca L1', 'Cu K12', 'Cu L1', 'Fe K12', 'Fe L1']
+            headers = [None, None, None, "Muestra / Espectro"] + cols_test
+            ws_points.append(headers)
+
+            for esp in espectros[:5]:
+                ws_points.append([None, None, None, esp['archivo_pdz'], 100, 200, 300, 400, 500, 600])
+
+            wb.save(tmp_path)
+
+            # Verificar el archivo generado
+            wb_read = openpyxl.load_workbook(tmp_path)
+            self.assertIn("Parameter", wb_read.sheetnames)
+            self.assertIn("Points", wb_read.sheetnames)
+
+            df_points = pd.read_excel(tmp_path, sheet_name="Points", engine='openpyxl')
+            self.assertEqual(len(df_points), 5)
+            self.assertIn("Fe K12", df_points.columns)
+            self.assertIn("Ca K12", df_points.columns)
+            print("[TEST] Exportación ARTAX filtrada validada con éxito.")
+        finally:
+            if os.path.exists(tmp_path):
+                os.remove(tmp_path)
+
 if __name__ == '__main__':
     unittest.main()

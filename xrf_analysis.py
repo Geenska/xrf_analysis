@@ -597,13 +597,21 @@ class XRFProcessorGUI:
         )
         self.btn_guardar_rtx.grid(row=3, column=0, sticky="ew", pady=4)
 
+        self.btn_artax_filtrado = ttk.Button(
+            self.buttons_frame,
+            text="🎯 Exportar ARTAX (Líneas Seleccionadas)",
+            command=self.exportar_artax_filtrado,
+            style='Success.TButton'
+        )
+        self.btn_artax_filtrado.grid(row=4, column=0, sticky="ew", pady=4)
+
         self.btn_limpiar = ttk.Button(
             self.buttons_frame, 
             text="🧹 Limpiar Todo", 
             command=self.limpiar_datos,
             style='Danger.TButton'
         )
-        self.btn_limpiar.grid(row=4, column=0, sticky="ew", pady=4)
+        self.btn_limpiar.grid(row=5, column=0, sticky="ew", pady=4)
 
         # -------------------------------------------------------------
         # PANEL DERECHO: PESTAÑAS (NOTEBOOK)
@@ -908,6 +916,7 @@ class XRFProcessorGUI:
         Tooltip(self.btn_excel, "Exportar los datos consolidados y resúmenes de todas las muestras a un archivo Excel.")
         Tooltip(self.btn_excel_graficas, "Exportar reporte detallado en Excel con hojas individuales y gráficas.")
         Tooltip(self.btn_guardar_rtx, "Guardar la sesión y avances del proyecto en un archivo XML .rtx compatible con Bruker ARTAX.")
+        Tooltip(self.btn_artax_filtrado, "Exportar reporte con formato Bruker ARTAX (todos.xls) conteniendo todos los espectros individuales, pero limitado únicamente a las líneas de elementos marcadas en el panel de referencias.")
         Tooltip(self.btn_copiar_portapapeles, "Copiar la imagen de la gráfica actual al portapapeles para pegarla (Ctrl+V) sin guardar archivo.")
         Tooltip(self.btn_limpiar, "Eliminar todos los espectros y carpetas cargadas en la aplicación.")
 
@@ -2350,6 +2359,185 @@ class XRFProcessorGUI:
 
         except Exception as e:
             messagebox.showerror("Error de Exportación", f"No se pudo guardar el proyecto .rtx:\n{e}")
+
+    def exportar_artax_filtrado(self):
+        """
+        Exporta un archivo Excel (.xls/.xlsx) con el formato exacto de Bruker ARTAX (todos.xls).
+        Incluye las pestañas 'Parameter' y 'Points'.
+        - 'Points': Contiene únicamente las muestras individuales reales (excluyendo cualquier fila de SUMA),
+          y únicamente las columnas de los elementos seleccionados en el panel de Líneas de Referencia.
+        - 'Parameter': Contiene los metadatos de medición y la lista de los elementos seleccionados.
+        """
+        if not self.espectros_datos:
+            messagebox.showwarning("Advertencia", "No hay espectros cargados para exportar.")
+            return
+
+        elementos_seleccionados = [el for el, var in self.elementos_var.items() if var.get()]
+        if not elementos_seleccionados:
+            messagebox.showwarning(
+                "Líneas no seleccionadas",
+                "Por favor, selecciona al menos un elemento en el panel de 'Líneas de Referencia' para definir la línea base que deseas exportar."
+            )
+            return
+
+        elementos_seleccionados.sort()
+
+        # Filtrar únicamente espectros reales de muestra (sin sumas)
+        espectros_reales = {}
+        for item_id, esp in self.espectros_datos.items():
+            if esp.get('datos') is None:
+                continue
+            meta = esp.get('metadata', {})
+            is_suma = meta.get('es_suma', False) or item_id.endswith('/SUMA_AUTO') or esp.get('nombre_archivo', '').startswith('SUMA_')
+            if not is_suma:
+                espectros_reales[item_id] = esp
+
+        if not espectros_reales:
+            messagebox.showwarning("Advertencia", "No hay espectros individuales válidos para exportar.")
+            return
+
+        ruta_guardar = filedialog.asksaveasfilename(
+            defaultextension=".xls",
+            filetypes=[("Archivo Excel de Bruker ARTAX", "*.xls"), ("Todos los archivos", "*.*")],
+            title="Guardar Espectros Filtrados en Formato ARTAX (todos.xls)",
+            initialfile="todos_filtrado.xls"
+        )
+        if not ruta_guardar:
+            return
+
+        try:
+            ARTAX_ELEMENT_LINES = {
+                'Mg': [('Mg K12', 1.25)],
+                'Al': [('Al K12', 1.49)],
+                'Si': [('Si K12', 1.74)],
+                'P':  [('P K12', 2.01)],
+                'S':  [('S K12', 2.31)],
+                'Cl': [('Cl K12', 2.62)],
+                'Ar': [('Ar K12', 2.96)],
+                'K':  [('K K12', 3.31)],
+                'Ca': [('Ca K12', 3.69), ('Ca L1', 4.01)],
+                'Ti': [('Ti K12', 4.51), ('Ti L1', 4.93)],
+                'Cr': [('Cr K12', 5.41), ('Cr L1', 5.95)],
+                'Mn': [('Mn K12', 5.90), ('Mn L1', 6.49)],
+                'Fe': [('Fe K12', 6.40), ('Fe L1', 7.06)],
+                'Co': [('Co K12', 6.93)],
+                'Ni': [('Ni K12', 7.48), ('Ni L1', 8.26)],
+                'Cu': [('Cu K12', 8.04), ('Cu L1', 8.90)],
+                'Zn': [('Zn K12', 8.63), ('Zn L1', 9.57)],
+                'Ga': [('Ga K12', 9.25)],
+                'Ge': [('Ge K12', 9.88)],
+                'As': [('As K12', 10.54)],
+                'Se': [('Se K12', 11.22)],
+                'Br': [('Br K12', 11.92)],
+                'Rb': [('Rb K12', 13.39)],
+                'Sr': [('Sr K12', 14.16), ('Sr L1', 1.81)],
+                'Y':  [('Y K12', 14.96)],
+                'Zr': [('Zr K12', 15.77)],
+                'Nb': [('Nb K12', 16.61)],
+                'Mo': [('Mo K12', 17.48)],
+                'Ru': [('Ru K12', 19.28), ('Ru L1', 2.56)],
+                'Rh': [('Rh K12', 20.21), ('Rh L1', 2.69)],
+                'Pd': [('Pd K12', 21.18), ('Pd L1', 2.84)],
+                'Ag': [('Ag K12', 22.16), ('Ag L1', 2.98)],
+                'Cd': [('Cd K12', 23.17), ('Cd L1', 3.13)],
+                'In': [('In K12', 24.21), ('In L1', 3.29)],
+                'Sn': [('Sn K12', 25.27), ('Sn L1', 3.44)],
+                'Sb': [('Sb K12', 26.36), ('Sb L1', 3.60)],
+                'Ba': [('Ba L1', 4.47)],
+                'Os': [('Os L1', 8.91), ('Os M1', 1.91)],
+                'Au': [('Au L1', 9.71), ('Au M1', 2.12)],
+                'Hg': [('Hg L1', 9.99)],
+                'Pb': [('Pb L1', 10.55), ('Pb M1', 2.34)],
+                'Bi': [('Bi L1', 10.84)],
+                'Th': [('Th L1', 12.97), ('Th M1', 2.99)]
+            }
+
+            columnas_artax = []
+            lineas_evaluar = []
+            for el in elementos_seleccionados:
+                lines = ARTAX_ELEMENT_LINES.get(el, [(f"{el} K12", 5.0)])
+                for col_name, e_kev in lines:
+                    columnas_artax.append(col_name)
+                    lineas_evaluar.append((col_name, e_kev))
+
+            wb = openpyxl.Workbook()
+            ws_param = wb.active
+            ws_param.title = "Parameter"
+
+            primer_esp = next(iter(espectros_reales.values()))
+            meta = primer_esp.get('metadata', {})
+
+            high_voltage = meta.get('high_voltage', meta.get('xray_voltage_kv', 40))
+            current = meta.get('current', meta.get('xray_filament_current', 11))
+            live_time = meta.get('live_time', 24)
+            filter_str = meta.get('filter', 'Ti/Al')
+
+            param_rows = [
+                ["Project:", None],
+                [None, None],
+                ["Ser.No.:", None],
+                [None, None],
+                ["Method:", "arqu encrym"],
+                ["Measurement", None],
+                ["High voltage/kV:", high_voltage],
+                ["Current/µA:", current],
+                ["Time/s:", live_time],
+                ["Energy range/keV:", 0],
+                ["Anode:", None],
+                ["Filter:", filter_str],
+                ["Optic:", "No optic"],
+                ["Atmosphere:", "Air"],
+                ["Evaluation", None],
+                ["Corrections:", "Escape Backgr."],
+                ["Stripping cycles:", 9],
+                ["Elements:", " ".join(elementos_seleccionados) + " "],
+                ["Deconvolution method:", "Bayes"],
+            ]
+            for r in param_rows:
+                ws_param.append(r)
+
+            for _ in range(14):
+                ws_param.append([None, None])
+
+            ws_param.append(["Values:", "Net area"])
+
+            ws_points = wb.create_sheet(title="Points")
+            headers = [None, None, None, "Muestra / Espectro"] + columnas_artax
+            ws_points.append(headers)
+
+            for item_id, esp in espectros_reales.items():
+                nombre_archivo = esp.get('nombre_archivo', item_id)
+                df_datos = esp.get('datos')
+
+                row_data = [None, None, None, nombre_archivo]
+
+                if df_datos is not None and not df_datos.empty and 'Energia_keV' in df_datos and 'Cuentas' in df_datos:
+                    energias = df_datos['Energia_keV'].values
+                    counts = df_datos['Cuentas'].values
+                    fondo = lectura_espectros.calcular_fondo_snip(counts)
+
+                    for col_name, e_kev in lineas_evaluar:
+                        idx = np.argmin(np.abs(energias - e_kev))
+                        _, area_neta = lectura_espectros.calcular_area_neta_pico(counts, fondo, idx, window=7)
+                        row_data.append(int(round(area_neta)))
+                else:
+                    for _ in lineas_evaluar:
+                        row_data.append(0)
+
+                ws_points.append(row_data)
+
+            wb.save(ruta_guardar)
+
+            messagebox.showinfo(
+                "Exportación Exitosa",
+                f"Se exportó correctamente el reporte estilo Bruker ARTAX:\n{ruta_guardar}\n\n"
+                f"• Muestras procesadas: {len(espectros_reales)}\n"
+                f"• Elementos filtrados: {len(elementos_seleccionados)} ({', '.join(elementos_seleccionados)})\n"
+                f"• Columnas de líneas: {len(columnas_artax)}"
+            )
+
+        except Exception as e:
+            messagebox.showerror("Error al Exportar ARTAX", f"Ocurrió un error inesperado al guardar el archivo:\n{e}")
 
     def exportar_datos(self):
         if not self.espectros_datos:
